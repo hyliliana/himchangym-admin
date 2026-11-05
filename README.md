@@ -43,4 +43,11 @@ pnpm typecheck
 pnpm start
 ```
 
-Vercel에서 프로젝트 루트를 이 폴더로 설정하고 서버 환경 변수 `BACKEND_URL`에 HTTPS 백엔드 주소를 등록합니다. `NEXT_PUBLIC_` 변수로 설정하지 않습니다. 백엔드 환경 설정과 DB는 이 저장소에 포함하지 않습니다. 디자인 기준은 이 저장소의 `DESIGN.md`의 Toss 색상·서체·여백·상태 표현입니다.
+Vercel에서 프로젝트 루트를 이 폴더로 설정하고 서버 환경 변수 `BACKEND_URL`에 HTTPS 백엔드 주소를 등록합니다. `NEXT_PUBLIC_` 변수로 설정하지 않습니다. 백엔드 환경 설정과 DB는 이 저장소에 포함하지 않습니다. 디자인 기준은 이 저장소의 `DESIGN.md`의 직방(ZUIX) 카탈로그의 주황·회색 팔레트와 Pretendard, 4px 모서리, 상태 표현입니다.
+
+
+## 승인 디자인 통합
+
+제출 당시 `chief/himchangym-admin`의 `ffca914`를 보존하고 `chief/himchangym-design-update`에서 승인된 디자인을 통합했습니다. 원본 기준은 `DESIGN.md`, 적용·보정과 검수 범위는 `DESIGN-APPLICATION.md`에 기록합니다. 기존 구매·예약·권한·영수증 API는 변경하지 않습니다.
+
+디자인 카탈로그 출처: [ko-design-md by ChangSik Yoon](https://github.com/CaesiumY/ko-design-md), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). 카탈로그 원문은 `LICENSE-DESIGN-CONTENT` 적용 범위를 따릅니다. Pretendard 1.3.9는 SIL OFL 1.1이며 `LICENSE-PRETENDARD`를 보존합니다. H 덤벨 SVG는 힘찬짐 전용 심볼이며 외부 브랜드 로고를 사용하지 않습니다.

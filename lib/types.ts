@@ -3,7 +3,7 @@ export type Member = {id:number;name:string;phone:string;email:string;joinedAt:s
 export type Trainer = {id:number;name:string;workingDays:number[];deletedAt:string|null;hasAccount:boolean};
 export type PassType = {id:number;name:string;totalSessions:number;listPrice:number;validDays:number;deletedAt:string|null};
 export type Pass = {id:number;memberId:number;memberName:string;typeId:number;typeName:string;purchasedOn:string;paidAmount:number;expiresOn:string;totalSessions:number;usedSessions:number;bookedSessions:number;remainingSessions:number;availableSessions:number;isUsable:boolean};
-export type Reservation = {id:number;memberId:number;memberName:string;passId:number;typeName:string;trainerId:number;trainerName:string;startsAt:string;status:'booked'|'completed'|'cancelled'|'noshow';approval:'pending'|'approved'|'rejected';note:string};
+export type Reservation = {id:number;memberId:number;memberName:string;passId:number;typeName:string;trainerId:number;trainerName:string;startsAt:string;status:'booked'|'completed'|'cancelled'|'noshow';approval:'pending'|'approved'|'rejected';note:string;pendingChange?:{id:number;startsAt:string;requestedAt:string}|null;canDeskDecide?:boolean};
 export type Staff = {id:number;email:string;name:string;role:'admin'|'employee';isActive:boolean;mustChangePassword:boolean};
 export type Dashboard = {membersCount:number;bookedCount:number;todayCount:number;expiringPasses:Pass[];trainerStats:{id:number;name:string;completedCount:number}[]};
 

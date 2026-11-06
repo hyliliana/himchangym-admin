@@ -7,11 +7,17 @@ import {
   useRef,
   useState,
 } from "react";
+import TrainerScheduling from "../components/trainer-scheduling";
+import {
+  PendingTimeChange,
+  ReservationHistory,
+} from "../components/reservation-history";
 import type { Reservation, User } from "../../lib/types";
 
-type Filter = "pending" | "approved" | "completed" | "all";
+type Filter = "pending" | "changes" | "approved" | "completed" | "all";
 const filters: Record<Filter, string> = {
-  pending: "승인 대기",
+  pending: "예약 승인 대기",
+  changes: "시간 변경 신청",
   approved: "예정 수업",
   completed: "완료 · PT 피드백",
   all: "전체 기록",
@@ -90,11 +96,9 @@ async function api<T = Record<string, unknown>>(
     ...(body ? { body: JSON.stringify(body) } : {}),
     cache: "no-store",
   });
-  const data = await response
-    .json()
-    .catch(() => ({
-      message: "응답을 확인하지 못했어요. 다시 시도해 주세요.",
-    }));
+  const data = await response.json().catch(() => ({
+    message: "응답을 확인하지 못했어요. 다시 시도해 주세요.",
+  }));
   if (!response.ok) {
     if (
       response.status === 401 &&
@@ -317,6 +321,7 @@ export default function TrainerPage() {
   return <TrainerLessons user={user} logout={logout} />;
 }
 function TrainerLessons({ user, logout }: { user: User; logout: () => void }) {
+  const [view, setView] = useState<"lessons" | "schedule">("lessons");
   const [reservations, setReservations] = useState<Reservation[]>([]),
     [filter, setFilter] = useState<Filter>("pending"),
     [date, setDate] = useState(""),
@@ -352,6 +357,7 @@ function TrainerLessons({ user, logout }: { user: User; logout: () => void }) {
   const pending = reservations.filter(
     (r) => r.status === "booked" && r.approval === "pending",
   );
+  const changes = reservations.filter((r) => !!r.pendingChange);
   const approved = reservations.filter(
     (r) => r.status === "booked" && (r.approval ?? "approved") === "approved",
   );
@@ -359,11 +365,13 @@ function TrainerLessons({ user, logout }: { user: User; logout: () => void }) {
   const visible = (
     filter === "pending"
       ? pending
-      : filter === "approved"
-        ? approved
-        : filter === "completed"
-          ? completed
-          : reservations
+      : filter === "changes"
+        ? changes
+        : filter === "approved"
+          ? approved
+          : filter === "completed"
+            ? completed
+            : reservations
   )
     .filter(
       (r) =>
@@ -390,131 +398,167 @@ function TrainerLessons({ user, logout }: { user: User; logout: () => void }) {
         </div>
       </header>
       <main className="trainer-main">
-        <header className="page-head">
-          <div>
-            <p className="eyebrow">{today()} · 한국 시간</p>
-            <h1>담당 수업</h1>
-            <p className="muted">
-              예약을 확인하고 수업 후 PT 피드백을 남겨 주세요.
-            </p>
-          </div>
-          <button onClick={() => setRevision((v) => v + 1)} disabled={loading}>
-            새로고침
+        <nav
+          className="trainer-tabs trainer-primary-tabs"
+          aria-label="트레이너 메뉴"
+        >
+          <button
+            className={view === "lessons" ? "active" : ""}
+            aria-current={view === "lessons" ? "page" : undefined}
+            onClick={() => setView("lessons")}
+          >
+            담당 수업
           </button>
-        </header>
-        {message && <Notice success>{message}</Notice>}
-        <div className="metrics">
-          <section>
-            <span>승인 대기</span>
-            <strong>
-              {loading ? "—" : pending.length}
-              <small>건</small>
-            </strong>
-          </section>
-          <section>
-            <span>예정 수업</span>
-            <strong>
-              {loading ? "—" : approved.length}
-              <small>건</small>
-            </strong>
-          </section>
-          <section>
-            <span>완료 수업</span>
-            <strong>
-              {loading ? "—" : completed.length}
-              <small>건</small>
-            </strong>
-          </section>
-        </div>
-        <nav className="trainer-tabs" aria-label="수업 목록">
-          {Object.entries(filters).map(([key, label]) => (
-            <button
-              key={key}
-              aria-current={filter === key ? "page" : undefined}
-              className={filter === key ? "active" : ""}
-              onClick={() => setFilter(key as Filter)}
-            >
-              {label}
-            </button>
-          ))}
+          <button
+            className={view === "schedule" ? "active" : ""}
+            aria-current={view === "schedule" ? "page" : undefined}
+            onClick={() => setView("schedule")}
+          >
+            가용 시간 · 계약
+          </button>
         </nav>
-        <div className="trainer-filter">
-          <Field label="수업일">
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-          {date && <button onClick={() => setDate("")}>전체 날짜</button>}
-          <span className="help">
-            {!loading && !error && `${visible.length}건 · 한국 시간 기준`}
-          </span>
-        </div>
-        {loading && (
-          <p className="trainer-loading" role="status">
-            담당 수업을 불러오고 있어요…
-          </p>
-        )}
-        {error && (
+        {view === "schedule" ? (
+          <TrainerScheduling api={api} />
+        ) : (
           <>
-            <Notice>{error}</Notice>
-            <button onClick={() => setRevision((v) => v + 1)}>
-              다시 불러오기
-            </button>
+            <header className="page-head">
+              <div>
+                <p className="eyebrow">{today()} · 한국 시간</p>
+                <h1>담당 수업</h1>
+                <p className="muted">
+                  예약을 확인하고 수업 후 PT 피드백을 남겨 주세요.
+                </p>
+              </div>
+              <button
+                onClick={() => setRevision((v) => v + 1)}
+                disabled={loading}
+              >
+                새로고침
+              </button>
+            </header>
+            {message && <Notice success>{message}</Notice>}
+            <div className="metrics">
+              <section>
+                <span>승인 대기</span>
+                <strong>
+                  {loading ? "—" : pending.length}
+                  <small>건</small>
+                </strong>
+              </section>
+              <section>
+                <span>예정 수업</span>
+                <strong>
+                  {loading ? "—" : approved.length}
+                  <small>건</small>
+                </strong>
+              </section>
+              <section>
+                <span>완료 수업</span>
+                <strong>
+                  {loading ? "—" : completed.length}
+                  <small>건</small>
+                </strong>
+              </section>
+            </div>
+            <nav className="trainer-tabs" aria-label="수업 목록">
+              {Object.entries(filters).map(([key, label]) => (
+                <button
+                  key={key}
+                  aria-current={filter === key ? "page" : undefined}
+                  className={filter === key ? "active" : ""}
+                  onClick={() => setFilter(key as Filter)}
+                >
+                  {label}
+                  {key === "changes" && changes.length > 0
+                    ? ` ${changes.length}`
+                    : ""}
+                </button>
+              ))}
+            </nav>
+            <div className="trainer-filter">
+              <Field label="수업일">
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </Field>
+              {date && <button onClick={() => setDate("")}>전체 날짜</button>}
+              <span className="help">
+                {!loading && !error && `${visible.length}건 · 한국 시간 기준`}
+              </span>
+            </div>
+            {loading && (
+              <p className="trainer-loading" role="status">
+                담당 수업을 불러오고 있어요…
+              </p>
+            )}
+            {error && (
+              <>
+                <Notice>{error}</Notice>
+                <button onClick={() => setRevision((v) => v + 1)}>
+                  다시 불러오기
+                </button>
+              </>
+            )}
+            {!loading && !error && !visible.length && (
+              <section className="card empty">
+                {date
+                  ? "선택한 날짜에 수업이 없어요."
+                  : filter === "pending"
+                    ? "승인을 기다리는 예약이 없어요."
+                    : filter === "changes"
+                      ? "검토할 시간 변경 신청이 없어요."
+                      : filter === "approved"
+                        ? "예정된 수업이 없어요."
+                        : filter === "completed"
+                          ? "완료한 수업이 없어요."
+                          : "아직 담당 수업이 없어요."}
+              </section>
+            )}
+            <div className="trainer-lessons">
+              {visible.map((r) => (
+                <article className="card trainer-lesson" key={r.id}>
+                  <div className="trainer-lesson-head">
+                    <time dateTime={r.startsAt}>{time(r.startsAt)}</time>
+                    <Status reservation={r} />
+                    {r.pendingChange && (
+                      <span className="badge pending">시간 변경 신청</span>
+                    )}
+                  </div>
+                  <h2>
+                    {r.memberName}
+                    <small>회원</small>
+                  </h2>
+                  <p className="muted">{r.typeName}</p>
+                  {r.status === "completed" && (
+                    <div className="trainer-feedback">
+                      <strong>PT 피드백</strong>
+                      <p>{r.note || "아직 피드백을 작성하지 않았어요."}</p>
+                    </div>
+                  )}
+                  {r.approval === "rejected" && (
+                    <p className="help trainer-state-help">
+                      거절한 예약입니다. 회원이 새로 예약할 수 있어요.
+                    </p>
+                  )}
+                  <button
+                    className={r.status === "booked" ? "primary full" : "full"}
+                    onClick={() => setSelected(r)}
+                  >
+                    {r.status === "booked" && r.approval === "pending"
+                      ? "예약 검토"
+                      : r.status === "booked"
+                        ? "수업 처리"
+                        : r.status === "completed"
+                          ? "PT 피드백 작성 · 수정"
+                          : "수업 상세"}
+                  </button>
+                </article>
+              ))}
+            </div>
           </>
         )}
-        {!loading && !error && !visible.length && (
-          <section className="card empty">
-            {date
-              ? "선택한 날짜에 수업이 없어요."
-              : filter === "pending"
-                ? "승인을 기다리는 예약이 없어요."
-                : filter === "approved"
-                  ? "예정된 수업이 없어요."
-                  : filter === "completed"
-                    ? "완료한 수업이 없어요."
-                    : "아직 담당 수업이 없어요."}
-          </section>
-        )}
-        <div className="trainer-lessons">
-          {visible.map((r) => (
-            <article className="card trainer-lesson" key={r.id}>
-              <div className="trainer-lesson-head">
-                <time dateTime={r.startsAt}>{time(r.startsAt)}</time>
-                <Status reservation={r} />
-              </div>
-              <h2>
-                {r.memberName}
-                <small>회원</small>
-              </h2>
-              <p className="muted">{r.typeName}</p>
-              {r.status === "completed" && (
-                <div className="trainer-feedback">
-                  <strong>PT 피드백</strong>
-                  <p>{r.note || "아직 피드백을 작성하지 않았어요."}</p>
-                </div>
-              )}
-              {r.approval === "rejected" && (
-                <p className="help trainer-state-help">
-                  거절한 예약입니다. 회원이 새로 예약할 수 있어요.
-                </p>
-              )}
-              <button
-                className={r.status === "booked" ? "primary full" : "full"}
-                onClick={() => setSelected(r)}
-              >
-                {r.status === "booked" && r.approval === "pending"
-                  ? "예약 검토"
-                  : r.status === "booked"
-                    ? "수업 처리"
-                    : r.status === "completed"
-                      ? "PT 피드백 작성 · 수정"
-                      : "수업 상세"}
-              </button>
-            </article>
-          ))}
-        </div>
         <footer>힘찬짐 · 회원과 함께 쌓는 건강한 변화</footer>
       </main>
       {selected && (
@@ -606,8 +650,18 @@ function LessonDialog({
         <p>{time(r.startsAt)}</p>
         <p>
           <Status reservation={r} />
+          {r.pendingChange && (
+            <span className="badge pending">시간 변경 신청</span>
+          )}
         </p>
       </div>
+      <PendingTimeChange
+        api={api}
+        prefix="trainer"
+        reservation={r}
+        onBusyChange={setBusy}
+        onDone={onDone}
+      />
       {error && <Notice>{error}</Notice>}
       {awaiting && (
         <>
@@ -690,6 +744,7 @@ function LessonDialog({
         >
           <Field label="PT 피드백">
             <textarea
+              aria-label="PT 피드백"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={3000}
@@ -715,6 +770,7 @@ function LessonDialog({
           </button>
         </>
       )}
+      <ReservationHistory api={api} prefix="trainer" reservationId={r.id} />
     </dialog>
   );
 }

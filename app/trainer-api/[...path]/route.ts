@@ -16,17 +16,50 @@ async function proxy(
     path.length === 2 &&
     path[0] === "auth" &&
     ["login", "me", "logout", "change-password"].includes(path[1]);
-  const reservations =
-    path[0] === "trainer" &&
+  const trainer = path[0] === "trainer";
+  const id = (index: number) => /^\d+$/.test(path[index] ?? "");
+  const reservationRead =
+    trainer &&
     path[1] === "reservations" &&
-    (path.length === 2 || (path.length === 3 && /^\d+$/.test(path[2])));
+    request.method === "GET" &&
+    (path.length === 2 ||
+      (path.length === 4 && id(2) && path[3] === "history"));
+  const reservationUpdate =
+    trainer &&
+    path[1] === "reservations" &&
+    path.length === 3 &&
+    id(2) &&
+    request.method === "PATCH";
+  const changeDecision =
+    trainer &&
+    path[1] === "reservations" &&
+    path.length === 6 &&
+    id(2) &&
+    path[3] === "changes" &&
+    id(4) &&
+    path[5] === "decision" &&
+    request.method === "POST";
+  const scheduleRead =
+    trainer &&
+    path.length === 2 &&
+    ["schedule", "slot-candidates"].includes(path[1]) &&
+    request.method === "GET";
+  const slotWrite =
+    trainer &&
+    path[1] === "slots" &&
+    ((path.length === 2 && request.method === "POST") ||
+      (path.length === 3 &&
+        id(2) &&
+        ["PATCH", "DELETE"].includes(request.method)));
   const allowedMethod =
     (auth &&
       ((path[1] === "me" && request.method === "GET") ||
         (path[1] !== "me" && request.method === "POST"))) ||
-    (reservations &&
-      ((path.length === 2 && request.method === "GET") ||
-        (path.length === 3 && request.method === "PATCH")));
+    reservationRead ||
+    reservationUpdate ||
+    changeDecision ||
+    scheduleRead ||
+    slotWrite;
   if (!allowedMethod)
     return NextResponse.json(
       { message: "요청을 찾을 수 없습니다." },
@@ -85,11 +118,9 @@ async function proxy(
         signal: AbortSignal.timeout(20000),
       },
     );
-    const body = await upstream
-      .json()
-      .catch(() => ({
-        message: "서버 응답을 확인하지 못했어요. 다시 시도해 주세요.",
-      }));
+    const body = await upstream.json().catch(() => ({
+      message: "서버 응답을 확인하지 못했어요. 다시 시도해 주세요.",
+    }));
     const sessionToken =
       auth &&
       path[1] === "login" &&
@@ -125,3 +156,5 @@ async function proxy(
 export const GET = proxy;
 export const POST = proxy;
 export const PATCH = proxy;
+
+export const DELETE = proxy;

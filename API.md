@@ -65,3 +65,24 @@ Each frontend own package.json, lockfile, Next.js app, README. Use versions from
 - 거절하면 서버가 `approval:'rejected'`와 `status:'cancelled'`를 함께 저장합니다. 승인 대기 수업은 완료·노쇼로 처리할 수 없습니다.
 - 마스터 관리자 전용 `POST /admin/trainers/:id/account` `{email}` 및 `POST /admin/trainers/:id/reset-password` `{}`는 `{temporaryPassword}`를 반환합니다. 임시 비밀번호는 결과창에서 한 번 표시하며 소스·로그에 보관하지 않습니다.
 - `GET /admin/catalog`의 트레이너 항목은 `hasAccount`를 제공합니다. 내부 `admin`/`employee` 권한값은 유지하고, 화면에서는 각각 마스터 관리자/부운영자(데스크)로 표시합니다.
+
+## 시설·계약·공개 슬롯
+
+- `GET/PATCH /admin/facility` → `{facility:{startHour,endHour,capacity}}`. 수정은 마스터 관리자만 가능합니다.
+- `GET/PATCH /admin/trainers/:id/contract` → `{contract,progress}`. 계약은 `{id,startDate,endDate,minSlots,maxSlots,allowedWeekdays,startHour,endHour}`, 진행은 `{approved,pending,total}`입니다.
+- `POST /admin/trainers/:id/contracts`는 기간이 겹치지 않는 새 계약을 등록합니다. 과거 계약과 슬롯·실적은 보존합니다.
+- `GET /trainer/schedule`, `GET /admin/trainers/:id/schedule` → `{contract,progress,contracts,slots}`. `contracts`의 각 계약은 자체 `progress`를 포함합니다.
+- `GET /trainer/slot-candidates?from=YYYY-MM-DD&to=YYYY-MM-DD[&excludeSlotId=ID]` → `{candidates:[{startsAt,withinScope}],facility,contract,progress}`. 마스터 대리 조회는 `/admin/trainers/:id/slot-candidates`입니다. 조회기간에 해당하는 계약을 날짜별로 탐색하며 후보 없는 날짜·시간은 UI에서 선택할 수 없습니다.
+- `POST /trainer/slots` `{startsAt}`, `PATCH /trainer/slots/:id` `{startsAt}`, `DELETE /trainer/slots/:id`. 관리자 대리 등록은 `POST /admin/trainers/:id/slots`, 수정·철회는 `/admin/slots/:id`입니다.
+- 슬롯은 `{id,trainerId,trainerName,startsAt,status,withinScope,reason,hasReservation}`입니다. 승인·대기 슬롯은 시설 정원과 계약 최대 등록 수를 점유합니다. 예약이 연결된 슬롯은 수정·철회하지 못합니다.
+- `GET /admin/slots?status=pending` → `{slots}`. `PATCH /admin/slots/:id/decision` `{status:'approved'|'rejected',reason?,expectedStartsAt}`로 결정합니다. 승인 대상 시간이 바뀌면 409로 거절합니다.
+
+## 원래 수업을 유지하는 시간 변경
+
+예약 응답은 `pendingChange:null|{id,startsAt,requestedAt}`와 `canDeskDecide`를 포함합니다. 대기 요청이 있어도 예약의 원래 `startsAt`과 승인 상태를 유지합니다.
+
+- `POST /trainer/reservations/:id/changes/:requestId/decision` `{decision:'approve'|'reject'}`. 데스크 대리 결정은 `/admin/...` 같은 경로이며 `canDeskDecide`인 수업만 가능합니다.
+- `GET /trainer/reservations/:id/history`, `GET /admin/reservations/:id/history` → `{history:[{id,event,actorName,actorRole,changedAt,before,after}]}`. `before`/`after`의 관련 `startsAt`, `note`, `status`, `approval`을 한국어로 표시합니다.
+- 트레이너 BFF는 위 예약 이력·변경 결정과 schedule/candidate/slot 경로만 명시적으로 전달합니다. 관리자 쿠키와의 분리는 유지합니다.
+
+지난 `approved` 슬롯은 실적 보존 대상입니다. 지난 `pending`은 승인·시간 수정이 불가능하지만 트레이너 철회와 관리자 거절을 허용합니다.

@@ -53,3 +53,15 @@ Each frontend own package.json, lockfile, Next.js app, README. Use versions from
 - Receipt = {id,fileName,mimeType,dataUrl,createdAt}
 - JPG/PNG/WebP only, actual file magic/MIME check, filename up to 120 characters, decoded file up to 2MB, up to 5 files per pass, total decoded files per pass <=3,000,000 bytes.
 - Stored permanently as bytea in hw2.pass_receipts with pass/uploader foreign keys; no update/delete/OCR or payment verification.
+
+## 트레이너 계정과 승인
+
+화면 경로는 `/trainer`, 브라우저 BFF 경로는 `/trainer-api/*`입니다. 트레이너 BFF는 별도 HttpOnly `gym_trainer_session` 쿠키(Path `/trainer-api`)를 사용하며 기존 관리자 `gym_session`과 분리합니다.
+
+- `POST /auth/login`: `{email,password,kind:'trainer'}`. BFF가 로그인 유형을 강제하고 응답의 token을 쿠키로 옮깁니다.
+- `GET /auth/me`, `POST /auth/change-password`, `POST /auth/logout`: 기존 인증 계약과 동일합니다. 최초 비밀번호 변경 전에는 수업 화면을 제공하지 않습니다.
+- `GET /trainer/reservations`: `{reservations}`. 본인 담당 수업만 반환하며 기존 예약 필드에 `approval: 'pending' | 'approved' | 'rejected'`가 추가됩니다.
+- `PATCH /trainer/reservations/:id`: 승인·거절은 `{approval:'approved'|'rejected',expectedStartsAt}`. `expectedStartsAt`은 조회한 ISO 날짜 그대로 보내며, 일정이 바뀌면 409로 거절합니다. 상태 처리는 `{status:'completed'|'noshow'}`, PT 피드백은 `{note:string}`입니다.
+- 거절하면 서버가 `approval:'rejected'`와 `status:'cancelled'`를 함께 저장합니다. 승인 대기 수업은 완료·노쇼로 처리할 수 없습니다.
+- 마스터 관리자 전용 `POST /admin/trainers/:id/account` `{email}` 및 `POST /admin/trainers/:id/reset-password` `{}`는 `{temporaryPassword}`를 반환합니다. 임시 비밀번호는 결과창에서 한 번 표시하며 소스·로그에 보관하지 않습니다.
+- `GET /admin/catalog`의 트레이너 항목은 `hasAccount`를 제공합니다. 내부 `admin`/`employee` 권한값은 유지하고, 화면에서는 각각 마스터 관리자/부운영자(데스크)로 표시합니다.
